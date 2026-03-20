@@ -1,0 +1,25 @@
+{
+  "name": "pax-pamir-online",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Online Pax Pamir platform with AI-vs-AI support.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -ws --if-present",
+    "dev:server": "npm --workspace @pax/server run dev",
+    "dev:web": "npm --workspace @pax/web run dev",
+    "dev:sim": "npm --workspace @pax/sim run dev",
+    "lint": "npm run lint -ws --if-present",
+    "test": "npm run test -ws --if-present",
+    "typecheck": "npm run typecheck -ws --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
