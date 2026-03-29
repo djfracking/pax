@@ -1,21 +1,25 @@
 import type { LegalActionChoice } from "./actions.js";
-import type { Coalition } from "./cards.js";
+import type { Coalition, Region } from "./cards.js";
 
 export type PlayerId = string;
+export type CardId = string;
 
 export interface PlayerState {
   id: PlayerId;
   name: string;
-  hand: string[];
-  court: string[];
+  hand: CardId[];
+  court: CardId[];
   coalition: Coalition;
   loyalty: number;
   rupees: number;
   victoryPoints: number;
+  influence: Record<Exclude<Coalition, "none">, number>;
+  courtCardSpies: Record<CardId, Record<PlayerId, number>>;
+  giftsCylinders: number;
 }
 
 export interface RegionState {
-  id: string;
+  id: Region;
   armies: {
     afghan: number;
     british: number;
@@ -37,8 +41,8 @@ export interface GameState {
   actionPointsRemaining: number;
   currentPlayerId: PlayerId;
   players: PlayerState[];
-  marketRows: string[][];
-  deck: string[];
+  marketRows: CardId[][];
+  deck: CardId[];
   board: RegionState[];
   deckCount: number;
   dominanceChecksRemaining: number;
@@ -47,9 +51,10 @@ export interface GameState {
     coalitionStrength: Record<Exclude<Coalition, "none">, number>;
     awardedVictoryPoints: Record<PlayerId, number>;
   } | null;
-  discard: string[];
+  discard: CardId[];
   isFinished: boolean;
   winnerPlayerId: PlayerId | null;
+  usedCardThisTurn: CardId[];
 }
 
 export interface PublicObservation {
@@ -60,7 +65,7 @@ export interface PublicObservation {
   currentPlayerId: PlayerId;
   players: Omit<PlayerState, "hand">[];
   board: RegionState[];
-  marketRows: string[][];
+  marketRows: CardId[][];
   deckCount: number;
   dominanceChecksRemaining: number;
   lastDominanceResult: GameState["lastDominanceResult"];
@@ -71,7 +76,7 @@ export interface PublicObservation {
 export interface PlayerObservation extends PublicObservation {
   self: {
     id: PlayerId;
-    hand: string[];
+    hand: CardId[];
     rupees: number;
     coalition: Coalition;
   };

@@ -2,6 +2,8 @@ export type Coalition = "afghan" | "british" | "russian" | "none";
 export type Suit = "political" | "intelligence" | "economic" | "military";
 export type Region = "kabul" | "kandahar" | "punjab" | "herat" | "persia" | "transcaspia";
 
+export type ActionIcon = "tax" | "gift" | "build" | "move" | "battle" | "betray" | "spy";
+
 export type CardEffectHook =
   | "on_play"
   | "on_buy"
@@ -24,7 +26,40 @@ export interface CardDefinition {
   coalition: Coalition;
   rank: number;
   stars: number;
+  isPatriot: boolean;
+  actionIcons: ActionIcon[];
   effects: CardEffect[];
+}
+
+export const REGION_BORDERS: Array<[Region, Region]> = [
+  ["herat", "persia"],
+  ["herat", "transcaspia"],
+  ["herat", "kabul"],
+  ["herat", "kandahar"],
+  ["kabul", "transcaspia"],
+  ["kabul", "kandahar"],
+  ["kabul", "punjab"],
+  ["kandahar", "punjab"],
+  ["persia", "transcaspia"],
+];
+
+const borderSet = new Set<string>();
+for (const [a, b] of REGION_BORDERS) {
+  borderSet.add(`${a}:${b}`);
+  borderSet.add(`${b}:${a}`);
+}
+
+export function areRegionsAdjacent(a: Region, b: Region): boolean {
+  return borderSet.has(`${a}:${b}`);
+}
+
+export function getAdjacentRegions(region: Region): Region[] {
+  const adjacent: Region[] = [];
+  for (const [a, b] of REGION_BORDERS) {
+    if (a === region) adjacent.push(b);
+    else if (b === region) adjacent.push(a);
+  }
+  return adjacent;
 }
 
 // Milestone scaffolding card set. This shape is ready for full deck data import.
@@ -37,6 +72,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "none",
     rank: 1,
     stars: 0,
+    isPatriot: false,
+    actionIcons: ["tax"],
     effects: [{ id: "gain-rupee", hook: "on_play", ruleText: "Gain 1 rupee." }]
   },
   {
@@ -47,6 +84,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "british",
     rank: 1,
     stars: 1,
+    isPatriot: false,
+    actionIcons: ["battle", "build"],
     effects: [{ id: "road-discount", hook: "on_turn_start", ruleText: "Road actions cost -1." }]
   },
   {
@@ -57,6 +96,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "russian",
     rank: 2,
     stars: 1,
+    isPatriot: true,
+    actionIcons: ["tax", "gift"],
     effects: [{ id: "tax-bonus", hook: "on_buy", ruleText: "Gain 1 rupee after buying." }]
   },
   {
@@ -67,6 +108,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "none",
     rank: 1,
     stars: 0,
+    isPatriot: false,
+    actionIcons: ["tax", "build"],
     effects: [{ id: "market-discount", hook: "on_buy", ruleText: "Left-most market card costs 0." }]
   },
   {
@@ -77,6 +120,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "afghan",
     rank: 1,
     stars: 0,
+    isPatriot: false,
+    actionIcons: ["spy", "move", "betray"],
     effects: [{ id: "spy-mobility", hook: "on_turn_start", ruleText: "You may move a spy 1 region." }]
   },
   {
@@ -87,6 +132,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "none",
     rank: 2,
     stars: 0,
+    isPatriot: false,
+    actionIcons: ["tax"],
     effects: [{ id: "income-boost", hook: "on_play", ruleText: "Gain 2 rupees." }]
   },
   {
@@ -97,6 +144,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "afghan",
     rank: 2,
     stars: 1,
+    isPatriot: true,
+    actionIcons: ["battle", "move"],
     effects: [{ id: "battle-bonus", hook: "on_battle", ruleText: "First battle action each turn is stronger." }]
   },
   {
@@ -107,6 +156,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "british",
     rank: 1,
     stars: 0,
+    isPatriot: true,
+    actionIcons: ["tax", "gift"],
     effects: [{ id: "gift-discount", hook: "on_turn_start", ruleText: "Gifts cost 1 less." }]
   },
   {
@@ -117,6 +168,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "none",
     rank: 1,
     stars: 0,
+    isPatriot: false,
+    actionIcons: ["build"],
     effects: [{ id: "market-refund", hook: "on_buy", ruleText: "Refund 1 rupee after purchase." }]
   },
   {
@@ -127,6 +180,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     coalition: "russian",
     rank: 2,
     stars: 0,
+    isPatriot: false,
+    actionIcons: ["spy", "betray", "move"],
     effects: [{ id: "betray-cost", hook: "on_betray", ruleText: "Betray costs 1 less rupee." }]
   }
 ];
@@ -144,6 +199,9 @@ export function validateCardLibrary(cards: CardDefinition[]): string[] {
     }
     if (card.rank < 1 || card.rank > 3) {
       issues.push(`Card ${card.id} rank out of range`);
+    }
+    if (card.actionIcons.length === 0) {
+      issues.push(`Card ${card.id} has no action icons`);
     }
   }
   return issues;

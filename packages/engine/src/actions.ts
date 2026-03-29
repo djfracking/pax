@@ -1,5 +1,5 @@
-import type { PlayerId } from "./types.js";
-import type { Coalition } from "./cards.js";
+import type { PlayerId, CardId } from "./types.js";
+import type { Coalition, Region } from "./cards.js";
 
 export type GameAction =
   | {
@@ -11,7 +11,7 @@ export type GameAction =
   | {
       type: "play_card";
       playerId: PlayerId;
-      cardId: string;
+      cardId: CardId;
     }
   | {
       type: "pass";
@@ -28,12 +28,12 @@ export type GameAction =
   | {
       type: "build_army";
       playerId: PlayerId;
-      regionId: string;
+      regionId: Region;
     }
   | {
       type: "build_road";
       playerId: PlayerId;
-      regionId: string;
+      regionId: Region;
     }
   | {
       type: "choose_faction";
@@ -43,6 +43,42 @@ export type GameAction =
   | {
       type: "perform_dominance_check";
       playerId: PlayerId;
+    }
+  | {
+      type: "tax";
+      playerId: PlayerId;
+      cardId: CardId;
+    }
+  | {
+      type: "gift";
+      playerId: PlayerId;
+    }
+  | {
+      type: "move_army";
+      playerId: PlayerId;
+      cardId: CardId;
+      fromRegionId: Region;
+      toRegionId: Region;
+    }
+  | {
+      type: "move_spy";
+      playerId: PlayerId;
+      cardId: CardId;
+      fromCardId: CardId;
+      toCardId: CardId;
+    }
+  | {
+      type: "battle";
+      playerId: PlayerId;
+      cardId: CardId;
+      regionId: Region;
+    }
+  | {
+      type: "betray";
+      playerId: PlayerId;
+      cardId: CardId;
+      targetCardId: CardId;
+      targetPlayerId: PlayerId;
     };
 
 export type LegalActionChoice = {
