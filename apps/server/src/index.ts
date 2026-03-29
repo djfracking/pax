@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { WebSocketServer } from "ws";
 import {
   applyAction,
@@ -12,6 +13,7 @@ import {
 } from "@pax/engine";
 
 const app = Fastify({ logger: true });
+await app.register(cors, { origin: true });
 const port = Number(process.env.PORT ?? 4000);
 
 const games = new Map<string, GameState>();

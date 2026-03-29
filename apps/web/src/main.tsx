@@ -1,328 +1,514 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { CARD_LIBRARY, type GameAction, type LegalActionChoice, type PlayerObservation, type PublicObservation } from "@pax/engine";
+import { CARD_LIBRARY, getAdjacentRegions, type GameAction, type PublicObservation, type Region } from "@pax/engine";
 
 const SERVER_URL = "http://localhost:4000";
 const WS_URL = "ws://localhost:4000";
 const CARD_BY_ID = new Map(CARD_LIBRARY.map((card) => [card.id, card]));
 
-type GameEvent = {
-  turn: number;
-  action: GameAction;
-  note: string;
-  at: string;
+// --- Coalition Colors (Russian = yellow per PP2e) ---
+
+const COALITION_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
+  afghan: { bg: "#2d5a27", text: "#a8e6a1", accent: "#4caf50" },
+  british: { bg: "#5a2727", text: "#e6a1a1", accent: "#ef5350" },
+  russian: { bg: "#5a5227", text: "#e6dda1", accent: "#fdd835" },
+  none: { bg: "#3a3a3a", text: "#999", accent: "#666" },
 };
 
-function App() {
-  const [gameId, setGameId] = useState("demo-game");
-  const [playerId, setPlayerId] = useState("p1");
-  const [playerCount, setPlayerCount] = useState(5);
-  const [state, setState] = useState<PublicObservation | null>(null);
-  const [playerView, setPlayerView] = useState<PlayerObservation | null>(null);
-  const [legalChoices, setLegalChoices] = useState<LegalActionChoice[]>([]);
-  const [events, setEvents] = useState<GameEvent[]>([]);
-  const [status, setStatus] = useState("idle");
+const SUIT_COLORS: Record<string, string> = {
+  political: "#a78bfa",
+  intelligence: "#60a5fa",
+  economic: "#fbbf24",
+  military: "#f87171",
+};
 
-  const isMyTurn = useMemo(
-    () => playerView?.currentPlayerId === playerId || state?.currentPlayerId === playerId,
-    [playerView, state, playerId]
+const ACTION_LABELS: Record<string, string> = {
+  tax: "Tax",
+  gift: "Gift",
+  build: "Bld",
+  move: "Mov",
+  battle: "Btl",
+  betray: "Bty",
+  spy: "Spy",
+};
+
+type GameEvent = { turn: number; action: GameAction; note: string; at: string };
+
+// --- Region Card ---
+
+function RegionCard({ region, board }: { region: PublicObservation["board"][0]; board: PublicObservation["board"] }) {
+  const adjacent = getAdjacentRegions(region.id as Region);
+  const totalArmies = region.armies.afghan + region.armies.british + region.armies.russian;
+  const totalRoads = region.roads.afghan + region.roads.british + region.roads.russian;
+
+  return (
+    <div style={{
+      background: "#16213e",
+      border: "1px solid #334155",
+      borderRadius: 8,
+      padding: "10px 12px",
+      minHeight: 110,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8" }}>
+          {region.id}
+        </span>
+      </div>
+
+      {/* Armies */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6, alignItems: "center" }}>
+        <span style={{ fontSize: 9, color: "#475569", width: 36 }}>Armies</span>
+        {(["afghan", "british", "russian"] as const).map((c) => {
+          const count = region.armies[c];
+          if (count === 0) return null;
+          return Array.from({ length: count }, (_, i) => (
+            <span key={`a-${c}-${i}`} style={{
+              display: "inline-block", width: 12, height: 12,
+              borderRadius: "50%", background: COALITION_COLORS[c].accent,
+              border: "1px solid rgba(255,255,255,0.2)",
+            }} title={`${c} army`} />
+          ));
+        })}
+        {totalArmies === 0 && <span style={{ fontSize: 10, color: "#475569" }}>none</span>}
+      </div>
+
+      {/* Roads with border labels */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6, alignItems: "center" }}>
+        <span style={{ fontSize: 9, color: "#475569", width: 36 }}>Roads</span>
+        {(["afghan", "british", "russian"] as const).map((c) => {
+          const count = region.roads[c];
+          if (count === 0) return null;
+          return Array.from({ length: count }, (_, i) => (
+            <span key={`r-${c}-${i}`} style={{
+              display: "inline-block", width: 16, height: 5,
+              borderRadius: 2, background: COALITION_COLORS[c].accent,
+              border: "1px solid rgba(255,255,255,0.15)",
+            }} title={`${c} road`} />
+          ));
+        })}
+        {totalRoads === 0 && <span style={{ fontSize: 10, color: "#475569" }}>none</span>}
+      </div>
+
+      {/* Border connections */}
+      <div style={{ fontSize: 9, color: "#475569", marginTop: 4 }}>
+        Borders: {adjacent.join(", ")}
+      </div>
+    </div>
   );
+}
 
-  async function createGame() {
-    setStatus("creating");
-    const playerIds = Array.from({ length: playerCount }, (_, idx) => `p${idx + 1}`);
-    const res = await fetch(`${SERVER_URL}/games`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        gameId,
-        playerIds
-      })
-    });
-    const json = (await res.json()) as { state?: PublicObservation; error?: string };
-    if (!res.ok || !json.state) {
-      setStatus(json.error ?? "failed to create");
-      return;
-    }
-    setState(json.state);
-    setPlayerView(null);
-    setLegalChoices([]);
-    setEvents([]);
-    setStatus("created");
-  }
+// --- Market Card ---
 
-  async function fetchState() {
-    const res = await fetch(`${SERVER_URL}/games/${gameId}`);
-    const json = (await res.json()) as { state?: PublicObservation; error?: string };
-    if (!res.ok || !json.state) {
-      setStatus(json.error ?? "failed to fetch");
-      return;
-    }
-    setState(json.state);
-    setStatus("loaded");
-    await fetchPlayerView();
-    await fetchEvents();
-  }
+function MarketCard({ cardId, cost, rupeesOn }: { cardId: string; cost: number; rupeesOn: number }) {
+  const card = CARD_BY_ID.get(cardId);
+  if (!card) return <div style={{ background: "#222", borderRadius: 6, padding: 8 }}>?</div>;
 
-  async function sendAction(action: GameAction) {
-    const res = await fetch(`${SERVER_URL}/games/${gameId}/action`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action })
-    });
-    const json = (await res.json()) as { state?: PublicObservation; error?: string };
-    if (!res.ok || !json.state) {
-      setStatus(json.error ?? "action rejected");
-      return;
-    }
-    setState(json.state);
-    setStatus("action applied");
-    await fetchPlayerView();
-    await fetchEvents();
-  }
+  const colors = COALITION_COLORS[card.coalition];
+  return (
+    <div style={{
+      background: "#1e293b",
+      border: `1px solid ${colors.accent}40`,
+      borderLeft: `3px solid ${colors.accent}`,
+      borderRadius: 6,
+      padding: "8px 10px",
+      fontSize: 12,
+      minWidth: 130,
+      flex: 1,
+      position: "relative",
+    }}>
+      {/* Rupees on this card */}
+      {rupeesOn > 0 && (
+        <div style={{
+          position: "absolute", top: -6, right: -6,
+          background: "#fbbf24", color: "#000", borderRadius: "50%",
+          width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 11, fontWeight: 700, border: "2px solid #1e293b",
+        }} title={`${rupeesOn} rupee${rupeesOn > 1 ? "s" : ""} on this card`}>
+          {rupeesOn}
+        </div>
+      )}
+      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, color: "#e2e8f0" }}>
+        {card.name}
+      </div>
+      <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 3 }}>
+        <span style={{
+          background: SUIT_COLORS[card.suit] + "33",
+          color: SUIT_COLORS[card.suit],
+          borderRadius: 3, padding: "0 5px", fontSize: 9, fontWeight: 700,
+        }}>{card.suit.slice(0, 3).toUpperCase()}</span>
+        <span style={{ color: "#94a3b8", fontSize: 10 }}>{card.region}</span>
+        {card.coalition !== "none" && (
+          <span style={{ color: colors.accent, fontSize: 10 }}>{card.coalition}</span>
+        )}
+        <span style={{ color: "#94a3b8", fontSize: 10 }}>R{card.rank}</span>
+        {card.stars > 0 && <span style={{ color: "#fbbf24", fontSize: 10 }}>{"*".repeat(card.stars)}</span>}
+      </div>
+      <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+        {card.actionIcons.map((icon) => (
+          <span key={icon} style={{
+            background: "#0f172a", border: "1px solid #475569",
+            borderRadius: 3, padding: "0 4px", fontSize: 8, color: "#cbd5e1",
+          }}>{ACTION_LABELS[icon] ?? icon}</span>
+        ))}
+      </div>
+      <div style={{ color: "#64748b", fontSize: 10, marginTop: 3 }}>
+        Cost: {cost}
+      </div>
+    </div>
+  );
+}
 
-  async function fetchPlayerView() {
-    const res = await fetch(`${SERVER_URL}/games/${gameId}/view/${playerId}`);
-    const json = (await res.json()) as { view?: PlayerObservation; error?: string };
-    if (!res.ok || !json.view) {
-      setPlayerView(null);
-      setLegalChoices([]);
-      setStatus(json.error ?? "failed to fetch player view");
-      return;
-    }
-    setPlayerView(json.view);
-    setState(json.view);
-    setLegalChoices(json.view.legalActions);
-  }
+// --- Small Court Card (for player display) ---
 
-  async function fetchLegalActions() {
-    const res = await fetch(`${SERVER_URL}/games/${gameId}/legal-actions/${playerId}`);
-    const json = (await res.json()) as {
-      choices?: LegalActionChoice[];
-      error?: string;
-    };
-    if (!res.ok || !json.choices) {
-      setLegalChoices([]);
-      setStatus(json.error ?? "failed to load legal actions");
-      return;
-    }
-    setLegalChoices(json.choices);
-  }
+function CourtCardMini({ cardId }: { cardId: string }) {
+  const card = CARD_BY_ID.get(cardId);
+  if (!card) return <span style={{ fontSize: 9, color: "#475569" }}>?</span>;
+  const colors = COALITION_COLORS[card.coalition];
+  return (
+    <div style={{
+      background: "#1e293b",
+      border: `1px solid ${colors.accent}55`,
+      borderLeft: `2px solid ${colors.accent}`,
+      borderRadius: 4,
+      padding: "3px 6px",
+      fontSize: 10,
+      lineHeight: 1.3,
+    }}>
+      <div style={{ fontWeight: 600, color: "#cbd5e1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>
+        {card.name}
+      </div>
+      <div style={{ display: "flex", gap: 3, marginTop: 1 }}>
+        <span style={{ color: SUIT_COLORS[card.suit], fontSize: 8, fontWeight: 700 }}>
+          {card.suit.slice(0, 3).toUpperCase()}
+        </span>
+        {card.actionIcons.slice(0, 3).map((icon) => (
+          <span key={icon} style={{ fontSize: 7, color: "#64748b" }}>{ACTION_LABELS[icon]}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  async function fetchEvents() {
-    const res = await fetch(`${SERVER_URL}/games/${gameId}/events`);
-    const json = (await res.json()) as { events?: GameEvent[]; error?: string };
-    if (!res.ok || !json.events) {
-      setStatus(json.error ?? "failed to load events");
-      return;
-    }
-    setEvents(json.events);
-  }
+// --- Player Strip ---
 
-  function connectWs() {
+function PlayerStrip({ player, isCurrent }: {
+  player: PublicObservation["players"][0];
+  isCurrent: boolean;
+}) {
+  const colors = COALITION_COLORS[player.coalition];
+  return (
+    <div style={{
+      background: isCurrent ? `${colors.accent}22` : "#0f172a",
+      border: `1px solid ${isCurrent ? colors.accent : "#334155"}`,
+      borderRadius: 8,
+      padding: "8px 12px",
+      flex: 1,
+      minWidth: 180,
+      transition: "all 0.3s ease",
+      boxShadow: isCurrent ? `0 0 12px ${colors.accent}33` : "none",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.accent, display: "inline-block" }} />
+        <span style={{ fontWeight: 700, fontSize: 14, color: isCurrent ? colors.text : "#94a3b8" }}>
+          {player.id}
+        </span>
+        <span style={{ fontSize: 10, color: colors.accent }}>{player.coalition !== "none" ? player.coalition : ""}</span>
+        {isCurrent && <span style={{ fontSize: 9, color: colors.accent, fontWeight: 700, marginLeft: "auto" }}>ACTIVE</span>}
+      </div>
+      <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5, marginBottom: 4 }}>
+        <span style={{ color: "#fbbf24" }}>{player.rupees} rupees</span>
+        {" | "}
+        <span style={{ color: "#a78bfa" }}>{player.victoryPoints} VP</span>
+        {" | "}
+        L:{player.loyalty}
+        {" | "}
+        Gifts:{player.giftsCylinders}
+      </div>
+      {/* Court cards */}
+      {player.court.length > 0 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+          {player.court.map((cardId) => (
+            <CourtCardMini key={cardId} cardId={cardId} />
+          ))}
+        </div>
+      )}
+      {player.court.length === 0 && (
+        <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>No court cards</div>
+      )}
+    </div>
+  );
+}
+
+// --- Event Log ---
+
+function EventLog({ events }: { events: GameEvent[] }) {
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [events.length]);
+
+  return (
+    <div style={{
+      background: "#0f172a", border: "1px solid #334155", borderRadius: 8,
+      padding: 12, height: "100%", overflowY: "auto", fontSize: 12,
+    }}>
+      <div style={{ fontWeight: 700, fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+        Event Log
+      </div>
+      {events.length === 0 && <div style={{ color: "#475569" }}>No events yet.</div>}
+      {events.map((event, i) => {
+        const isLatest = i === events.length - 1;
+        return (
+          <div key={`${event.turn}-${i}`} style={{
+            padding: "3px 6px", marginBottom: 1, borderRadius: 3,
+            background: isLatest ? "#1e3a5f" : "transparent",
+            color: isLatest ? "#e2e8f0" : "#64748b",
+            transition: "background 0.3s",
+          }}>
+            <span style={{ color: "#475569", marginRight: 6, fontSize: 10 }}>T{event.turn}</span>
+            {event.note}
+          </div>
+        );
+      })}
+      <div ref={endRef} />
+    </div>
+  );
+}
+
+// --- Main App ---
+
+function SpectatorApp() {
+  const [gameId, setGameId] = useState<string | null>(null);
+  const [state, setState] = useState<PublicObservation | null>(null);
+  const [events, setEvents] = useState<GameEvent[]>([]);
+  const [status, setStatus] = useState("Ready");
+  const [speed, setSpeed] = useState(600);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerCount, setPlayerCount] = useState(2);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  const connectWs = useCallback((gid: string) => {
+    if (wsRef.current) wsRef.current.close();
     const socket = new WebSocket(WS_URL);
+    wsRef.current = socket;
     socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "subscribe", gameId }));
-      setStatus("ws connected");
+      socket.send(JSON.stringify({ type: "subscribe", gameId: gid }));
+      setStatus("Connected");
     };
-    socket.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as
-        | { type: "state"; state: PublicObservation }
-        | { type: "info"; message: string };
+    socket.onmessage = (msg) => {
+      const payload = JSON.parse(msg.data);
       if (payload.type === "state") {
         setState(payload.state);
-        void fetchPlayerView();
-        void fetchLegalActions();
-        void fetchEvents();
+        fetch(`${SERVER_URL}/games/${gid}/events`)
+          .then((r) => r.json())
+          .then((j: { events?: GameEvent[] }) => { if (j.events) setEvents(j.events); })
+          .catch(() => {});
       } else if (payload.type === "info") {
         setStatus(payload.message);
       }
     };
-    socket.onerror = () => setStatus("ws error");
+    socket.onerror = () => setStatus("WebSocket error");
+    socket.onclose = () => setStatus("Disconnected");
+  }, []);
+
+  async function startGame() {
+    const gid = `game-${Date.now()}`;
+    const playerIds = Array.from({ length: playerCount }, (_, i) => `p${i + 1}`);
+    setStatus("Creating...");
+    const res = await fetch(`${SERVER_URL}/games`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gameId: gid, playerIds }),
+    });
+    const json = await res.json();
+    if (!res.ok) { setStatus(json.error ?? "Failed"); return; }
+    setGameId(gid);
+    setState(json.state);
+    setEvents([]);
+    connectWs(gid);
+    setStatus("Game created");
   }
 
+  async function toggleAutoplay() {
+    if (!gameId) return;
+    if (isPlaying) {
+      await fetch(`${SERVER_URL}/games/${gameId}/autoplay/stop`, { method: "POST" });
+      setIsPlaying(false);
+      setStatus("Paused");
+    } else {
+      await fetch(`${SERVER_URL}/games/${gameId}/autoplay/start`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ intervalMs: speed }),
+      });
+      setIsPlaying(true);
+      setStatus("Playing...");
+    }
+  }
+
+  async function changeSpeed(newSpeed: number) {
+    setSpeed(newSpeed);
+    if (isPlaying && gameId) {
+      await fetch(`${SERVER_URL}/games/${gameId}/autoplay/stop`, { method: "POST" });
+      await fetch(`${SERVER_URL}/games/${gameId}/autoplay/start`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ intervalMs: newSpeed }),
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (state && state.phase === "faction_draft" && gameId && !isPlaying) {
+      fetch(`${SERVER_URL}/games/${gameId}/autoplay/start`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ intervalMs: speed }),
+      }).then(() => setIsPlaying(true));
+    }
+  }, [state?.phase, gameId]);
+
+  const regionOrder: string[] = ["transcaspia", "kabul", "punjab", "persia", "herat", "kandahar"];
+
   return (
-    <main style={{ fontFamily: "sans-serif", margin: "2rem auto", maxWidth: "800px" }}>
-      <h1>Pax Pamir Online - Starter</h1>
-      <p>Use this shell app to create/join a match while building the real board UI.</p>
-
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-        <input value={gameId} onChange={(e) => setGameId(e.target.value)} placeholder="game id" />
-        <input
-          value={playerId}
-          onChange={(e) => setPlayerId(e.target.value)}
-          placeholder="player id"
-        />
-        <label style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-          Players
-          <select
-            value={playerCount}
-            onChange={(e) => setPlayerCount(Number(e.target.value))}
-          >
-            <option value={2}>2</option>
-            <option value={3}>3</option>
-            <option value={4}>4</option>
-            <option value={5}>5</option>
-          </select>
-        </label>
-      </div>
-
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-        <button onClick={createGame}>Create game</button>
-        <button onClick={fetchState}>Fetch state</button>
-        <button onClick={fetchPlayerView}>Fetch my view</button>
-        <button onClick={fetchLegalActions}>Fetch legal actions</button>
-        <button onClick={fetchEvents}>Fetch events</button>
-        <button onClick={connectWs}>Subscribe WS</button>
-      </div>
-
-      <p>Status: {status}</p>
-
-      {state ? (
-        <section>
-          <h2>Game {state.gameId}</h2>
-          <p>
-            Phase {state.phase} - Turn {state.turn} - Current player: <strong>{state.currentPlayerId}</strong>
-          </p>
-          <p>
-            Action points remaining: <strong>{state.actionPointsRemaining}</strong>
-          </p>
-          <h3>Market (2 rows x up to 5 cards)</h3>
-          {state.marketRows.map((row, rowIdx) => (
-            <section key={`row-${rowIdx}`} style={{ marginBottom: "0.75rem" }}>
-              <p style={{ marginBottom: "0.35rem" }}>
-                <strong>Row {rowIdx + 1}</strong>
-              </p>
-              {row.length === 0 ? (
-                <p>(empty)</p>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.5rem" }}>
-                  {row.map((cardId, colIdx) => {
-                    const card = CARD_BY_ID.get(cardId);
-                    return (
-                      <div
-                        key={`${rowIdx}-${colIdx}-${cardId}`}
-                        style={{
-                          border: "1px solid #bbb",
-                          borderRadius: "8px",
-                          padding: "0.5rem",
-                          background: "#fafafa"
-                        }}
-                      >
-                        <p style={{ margin: 0 }}>
-                          <strong>Slot {colIdx + 1}</strong> (cost {colIdx})
-                        </p>
-                        <p style={{ margin: "0.25rem 0 0 0" }}>
-                          {card?.name ?? cardId}
-                        </p>
-                        <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.9rem" }}>
-                          {card
-                            ? `${card.suit} | ${card.region} | ${card.coalition} | rank ${card.rank}`
-                            : "Unknown card"}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          ))}
-          <p>Deck count: {state.deckCount} | Discard count: {state.discardCount}</p>
-          <p>Dominance checks remaining: {state.dominanceChecksRemaining}</p>
-          {state.lastDominanceResult ? (
-            <p>
-              Last dominance:{" "}
-              {state.lastDominanceResult.dominantCoalition
-                ? `dominant=${state.lastDominanceResult.dominantCoalition}`
-                : "failed (no dominant coalition)"}{" "}
-              | strengths A/B/R:{" "}
-              {state.lastDominanceResult.coalitionStrength.afghan}/
-              {state.lastDominanceResult.coalitionStrength.british}/
-              {state.lastDominanceResult.coalitionStrength.russian}
-            </p>
-          ) : (
-            <p>Last dominance: none yet</p>
+    <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 1200, margin: "0 auto", padding: "12px 20px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #334155" }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#e2e8f0", letterSpacing: -0.5 }}>
+            Pax Pamir
+          </h1>
+          <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>Spectator Mode</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {!gameId && (
+            <>
+              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#94a3b8" }}>
+                Players
+                <select value={playerCount} onChange={(e) => setPlayerCount(Number(e.target.value))}
+                  style={{ background: "#1e293b", color: "#e2e8f0", border: "1px solid #475569", borderRadius: 4, padding: "3px 6px", fontSize: 12 }}>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                  <option value={5}>5</option>
+                </select>
+              </label>
+              <button onClick={startGame} style={{
+                background: "#4caf50", color: "#fff", border: "none", borderRadius: 6,
+                padding: "7px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>New Game</button>
+            </>
           )}
+          {gameId && (
+            <>
+              <button onClick={toggleAutoplay} style={{
+                background: isPlaying ? "#ef5350" : "#4caf50",
+                color: "#fff", border: "none", borderRadius: 6,
+                padding: "7px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>{isPlaying ? "Pause" : "Play"}</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 10, color: "#64748b" }}>Speed</span>
+                <input type="range" min={200} max={2000} step={100} value={speed}
+                  onChange={(e) => changeSpeed(Number(e.target.value))} style={{ width: 80 }} />
+                <span style={{ fontSize: 10, color: "#94a3b8", minWidth: 36 }}>{speed}ms</span>
+              </div>
+            </>
+          )}
+          <span style={{ fontSize: 10, color: "#475569" }}>{status}</span>
+        </div>
+      </div>
 
-          <h3>Regions</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.5rem" }}>
-            {state.board.map((region) => (
-              <div
-                key={region.id}
-                style={{
-                  border: "1px solid #bbb",
-                  borderRadius: "8px",
-                  padding: "0.5rem",
-                  background: "#f8f8ff"
-                }}
-              >
-                <p style={{ margin: 0 }}>
-                  <strong>{region.id}</strong>
-                </p>
-                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.92rem" }}>
-                  Armies A/B/R: {region.armies.afghan}/{region.armies.british}/{region.armies.russian}
-                </p>
-                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.92rem" }}>
-                  Roads A/B/R: {region.roads.afghan}/{region.roads.british}/{region.roads.russian}
-                </p>
+      {!state ? (
+        <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>&#9876;</div>
+          <div style={{ fontSize: 16 }}>Create a game to start watching</div>
+          <div style={{ fontSize: 12, marginTop: 8 }}>Bots will play automatically. Watch the state transitions unfold.</div>
+        </div>
+      ) : (
+        <>
+          {/* Game info bar */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 10, fontSize: 11, color: "#94a3b8", flexWrap: "wrap", alignItems: "center" }}>
+            <span>Phase: <strong style={{ color: "#e2e8f0" }}>{state.phase}</strong></span>
+            <span>Turn: <strong style={{ color: "#e2e8f0" }}>{state.turn}</strong></span>
+            <span>AP: <strong style={{ color: "#fbbf24" }}>{state.actionPointsRemaining}</strong></span>
+            <span>Deck: <strong style={{ color: "#e2e8f0" }}>{state.deckCount}</strong></span>
+            <span>Dom checks: <strong style={{ color: "#e2e8f0" }}>{state.dominanceChecksRemaining}</strong></span>
+            {/* Favored Suit */}
+            <span>
+              Favored suit:{" "}
+              <strong style={{ color: SUIT_COLORS[state.favoredSuit] ?? "#94a3b8" }}>
+                {state.favoredSuit}
+              </strong>
+            </span>
+            {state.lastDominanceResult && (
+              <span>Last dom: <strong style={{
+                color: state.lastDominanceResult.dominantCoalition
+                  ? COALITION_COLORS[state.lastDominanceResult.dominantCoalition].accent
+                  : "#94a3b8"
+              }}>
+                {state.lastDominanceResult.dominantCoalition ?? "unsuccessful"}
+              </strong></span>
+            )}
+          </div>
+
+          {/* Main grid: Board + Events */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 10, marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>
+                Regions
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                {regionOrder.map((rid) => {
+                  const region = state.board.find((r) => r.id === rid);
+                  return region ? <RegionCard key={rid} region={region} board={state.board} /> : null;
+                })}
+              </div>
+            </div>
+            <div style={{ maxHeight: 340 }}>
+              <EventLog events={events} />
+            </div>
+          </div>
+
+          {/* Market */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>
+              Market
+            </div>
+            {state.marketRows.map((row, rowIdx) => (
+              <div key={`row-${rowIdx}`} style={{ display: "flex", gap: 6, marginBottom: 5 }}>
+                <span style={{ fontSize: 10, color: "#475569", minWidth: 14, paddingTop: 8 }}>{rowIdx + 1}</span>
+                {row.map((cardId, colIdx) => (
+                  <MarketCard
+                    key={`${rowIdx}-${colIdx}-${cardId}`}
+                    cardId={cardId}
+                    cost={colIdx}
+                    rupeesOn={state.rupeesOnMarketCards?.[cardId] ?? 0}
+                  />
+                ))}
+                {row.length === 0 && <span style={{ fontSize: 10, color: "#475569", paddingTop: 8 }}>(empty)</span>}
               </div>
             ))}
           </div>
 
-          <h3>Players</h3>
-          <ul>
-            {state.players.map((player) => (
-              <li key={player.id}>
-                {player.id} - rupees: {player.rupees}, coalition: {player.coalition}, loyalty:{" "}
-                {player.loyalty}, VP: {player.victoryPoints}, court: {player.court.length}
-              </li>
-            ))}
-          </ul>
-
-          <h3>My known state ({playerId})</h3>
-          {playerView ? (
-            <div>
-              <p>
-                Hand: {playerView.self.hand.join(", ") || "(empty)"} | Rupees: {playerView.self.rupees} |
-                Coalition: {playerView.self.coalition} | Loyalty:{" "}
-                {state.players.find((p) => p.id === playerView.self.id)?.loyalty ?? 0}
-              </p>
+          {/* Players */}
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>
+              Players
             </div>
-          ) : (
-            <p>Load player view to see private information.</p>
-          )}
-
-          <h3>Legal actions</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            {legalChoices.map((choice) => (
-              <button
-                key={choice.id}
-                disabled={!isMyTurn}
-                onClick={() => sendAction(choice.action as GameAction)}
-                style={{ textAlign: "left" }}
-              >
-                {choice.label}
-              </button>
-            ))}
-            {legalChoices.length === 0 ? <p>No legal actions listed.</p> : null}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {state.players.map((player) => (
+                <PlayerStrip key={player.id} player={player} isCurrent={player.id === state.currentPlayerId} />
+              ))}
+            </div>
           </div>
-
-          <h3 style={{ marginTop: "1.25rem" }}>Move history</h3>
-          <ol>
-            {events.map((event, index) => (
-              <li key={`${event.turn}-${index}`}>
-                Turn {event.turn}: {event.note}
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-    </main>
+        </>
+      )}
+    </div>
   );
 }
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <SpectatorApp />
   </React.StrictMode>
 );

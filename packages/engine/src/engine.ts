@@ -56,6 +56,8 @@ export function createInitialState(
     isFinished: false,
     winnerPlayerId: null,
     usedCardThisTurn: [],
+    favoredSuit: "political",
+    rupeesOnMarketCards: {},
   };
 }
 
@@ -122,6 +124,8 @@ function cloneState(state: GameState): GameState {
     })),
     discard: [...state.discard],
     usedCardThisTurn: [...state.usedCardThisTurn],
+    favoredSuit: state.favoredSuit,
+    rupeesOnMarketCards: { ...state.rupeesOnMarketCards },
   };
 }
 
@@ -458,9 +462,18 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 function handleBuyCard(state: GameState, action: Extract<GameAction, { type: "buy_card" }>, player: PlayerState): void {
   const row = state.marketRows[action.row];
   if (!row) throw new Error("Invalid market row.");
+  const cost = getBuyCardCost(action.column);
+  // Place rupees on leftward cards in the same row (PP2e rule)
+  for (let i = 0; i < action.column && i < row.length; i++) {
+    const leftCardId = row[i];
+    if (leftCardId && leftCardId !== row[action.column]) {
+      state.rupeesOnMarketCards[leftCardId] = (state.rupeesOnMarketCards[leftCardId] ?? 0) + 1;
+    }
+  }
   const [card] = row.splice(action.column, 1);
   if (!card) throw new Error("Invalid market slot.");
-  const cost = getBuyCardCost(action.column);
+  // Remove rupee tracking for the bought card
+  delete state.rupeesOnMarketCards[card];
   player.rupees -= cost;
   player.hand.push(card);
   refillMarket(state);
@@ -814,7 +827,9 @@ export function toPublicObservation(state: GameState): PublicObservation {
         }
       : null,
     discardCount: state.discard.length,
-    isFinished: state.isFinished
+    isFinished: state.isFinished,
+    favoredSuit: state.favoredSuit,
+    rupeesOnMarketCards: { ...state.rupeesOnMarketCards },
   };
 }
 

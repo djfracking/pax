@@ -55,6 +55,8 @@ export interface GameState {
   isFinished: boolean;
   winnerPlayerId: PlayerId | null;
   usedCardThisTurn: CardId[];
+  favoredSuit: "political" | "intelligence" | "economic" | "military";
+  rupeesOnMarketCards: Record<CardId, number>;
 }
 
 export interface PublicObservation {
@@ -71,6 +73,8 @@ export interface PublicObservation {
   lastDominanceResult: GameState["lastDominanceResult"];
   discardCount: number;
   isFinished: boolean;
+  favoredSuit: "political" | "intelligence" | "economic" | "military";
+  rupeesOnMarketCards: Record<CardId, number>;
 }
 
 export interface PlayerObservation extends PublicObservation {
