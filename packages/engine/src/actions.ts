@@ -1,4 +1,4 @@
-import type { PlayerId, CardId } from "./types.js";
+import type { PlayerId, CardId, BorderId } from "./types.js";
 import type { Coalition, Region } from "./cards.js";
 
 export type GameAction =
@@ -22,18 +22,10 @@ export type GameAction =
       playerId: PlayerId;
     }
   | {
-      type: "gain_loyalty";
+      type: "build";
       playerId: PlayerId;
-    }
-  | {
-      type: "build_army";
-      playerId: PlayerId;
-      regionId: Region;
-    }
-  | {
-      type: "build_road";
-      playerId: PlayerId;
-      regionId: Region;
+      cardId: CardId;
+      pieces: Array<{ pieceType: "army"; regionId: Region } | { pieceType: "road"; borderId: BorderId }>;
     }
   | {
       type: "choose_faction";
@@ -66,6 +58,15 @@ export type GameAction =
       cardId: CardId;
       fromCardId: CardId;
       toCardId: CardId;
+    }
+  | {
+      type: "start_move";
+      playerId: PlayerId;
+      cardId: CardId;
+    }
+  | {
+      type: "end_move";
+      playerId: PlayerId;
     }
   | {
       type: "battle";

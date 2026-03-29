@@ -3,6 +3,7 @@ export type Suit = "political" | "intelligence" | "economic" | "military";
 export type Region = "kabul" | "kandahar" | "punjab" | "herat" | "persia" | "transcaspia";
 
 export type ActionIcon = "tax" | "gift" | "build" | "move" | "battle" | "betray" | "spy";
+export type ImpactIcon = "spy" | "army" | "road" | "tribe" | "leverage" | "suit_political" | "suit_intelligence" | "suit_economic" | "suit_military";
 
 export type CardEffectHook =
   | "on_play"
@@ -41,6 +42,8 @@ export interface CardDefinition {
   stars: number;
   isPatriot: boolean;
   actionIcons: ActionIcon[];
+  impactIcons: ImpactIcon[];
+  prize: Exclude<Coalition, "none"> | null;
   effects: CardEffect[];
 }
 
@@ -89,6 +92,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["move"],
+    impactIcons: ["spy","spy","spy"],
+    prize: "russian",
     effects: [
       {
         id: "indispensable_advisors",
@@ -107,6 +112,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "move"],
+    impactIcons: ["spy","spy","army","suit_military"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -119,6 +126,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle"],
+    impactIcons: ["spy","spy","army","suit_military"],
+    prize: null,
     effects: [
       {
         id: "insurrection",
@@ -137,6 +146,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["gift", "move"],
+    impactIcons: ["spy"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -149,6 +160,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build"],
+    impactIcons: ["tribe"],
+    prize: "afghan",
     effects: [
       {
         id: "claim_of_ancient_lineage",
@@ -167,6 +180,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["build", "battle"],
+    impactIcons: ["tribe","army","spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -179,6 +194,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: [],
+    impactIcons: ["tribe","tribe","army","spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -191,6 +208,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax"],
+    impactIcons: ["road","road","spy","suit_political"],
+    prize: null,
     effects: [],
   },
   {
@@ -203,6 +222,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "move"],
+    impactIcons: ["road"],
+    prize: null,
     effects: [],
   },
   {
@@ -215,6 +236,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build", "betray"],
+    impactIcons: ["road","suit_military"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -227,6 +250,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["tax", "gift"],
+    impactIcons: ["road","road"],
+    prize: null,
     effects: [],
   },
   {
@@ -239,6 +264,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["gift"],
+    impactIcons: ["road","road","road","army"],
+    prize: null,
     effects: [],
   },
   {
@@ -251,6 +278,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "move"],
+    impactIcons: ["road","road"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -263,6 +292,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["gift", "build"],
+    impactIcons: ["road","road","leverage"],
+    prize: null,
     effects: [],
   },
   {
@@ -275,6 +306,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray"],
+    impactIcons: ["army"],
+    prize: null,
     effects: [
       {
         id: "bodyguards",
@@ -293,6 +326,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "betray"],
+    impactIcons: ["army"],
+    prize: null,
     effects: [],
   },
   {
@@ -305,6 +340,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build"],
+    impactIcons: ["army"],
+    prize: null,
     effects: [
       {
         id: "citadel_kabul",
@@ -323,6 +360,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["gift", "betray"],
+    impactIcons: ["spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -335,6 +374,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move", "betray"],
+    impactIcons: ["spy","spy","suit_economic"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -347,6 +388,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["gift", "move"],
+    impactIcons: ["spy","suit_economic"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -359,6 +402,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["move"],
+    impactIcons: ["spy","spy"],
+    prize: "afghan",
     effects: [
       {
         id: "strange_bedfellows",
@@ -377,6 +422,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move", "gift"],
+    impactIcons: ["spy","suit_political"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -389,6 +436,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle", "move"],
+    impactIcons: ["spy","suit_economic"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -401,6 +450,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray"],
+    impactIcons: ["tribe","tribe","army"],
+    prize: null,
     effects: [
       {
         id: "civil_service_reforms",
@@ -419,6 +470,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["tax"],
+    impactIcons: ["tribe"],
+    prize: "british",
     effects: [],
   },
   {
@@ -431,6 +484,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray"],
+    impactIcons: ["tribe","army"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -443,6 +498,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["build"],
+    impactIcons: ["tribe","leverage"],
+    prize: null,
     effects: [],
   },
   {
@@ -455,6 +512,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "build"],
+    impactIcons: ["road","spy"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -467,6 +526,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "move"],
+    impactIcons: ["road","road"],
+    prize: null,
     effects: [],
   },
   {
@@ -479,6 +540,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["tax", "gift"],
+    impactIcons: ["road","spy","leverage"],
+    prize: null,
     effects: [],
   },
   {
@@ -491,6 +554,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "betray"],
+    impactIcons: ["army","suit_intelligence"],
+    prize: null,
     effects: [],
   },
   {
@@ -503,6 +568,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move"],
+    impactIcons: ["army","army","army"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -515,6 +582,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "gift"],
+    impactIcons: ["army","army"],
+    prize: null,
     effects: [],
   },
   {
@@ -527,6 +596,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "move", "betray"],
+    impactIcons: ["army","suit_economic"],
+    prize: "british",
     effects: [],
   },
   {
@@ -539,6 +610,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "move"],
+    impactIcons: ["army","army","suit_political"],
+    prize: null,
     effects: [],
   },
   {
@@ -551,6 +624,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle", "betray"],
+    impactIcons: ["army","suit_intelligence"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -563,6 +638,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle", "move"],
+    impactIcons: ["army","suit_political"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -575,6 +652,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle"],
+    impactIcons: ["army","army"],
+    prize: "british",
     effects: [],
   },
   {
@@ -587,6 +666,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["move", "battle"],
+    impactIcons: ["spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -599,6 +680,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: true,
     actionIcons: ["tax", "move"],
+    impactIcons: ["spy","spy","leverage"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -611,6 +694,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build"],
+    impactIcons: ["spy","spy"],
+    prize: null,
     effects: [
       {
         id: "safe_house",
@@ -629,6 +714,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: true,
     actionIcons: ["build"],
+    impactIcons: ["tribe","leverage","suit_economic"],
+    prize: "afghan",
     effects: [
       {
         id: "charismatic_courtiers",
@@ -647,6 +734,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle"],
+    impactIcons: ["tribe","army"],
+    prize: "afghan",
     effects: [
       {
         id: "blackmail_kandahar",
@@ -665,6 +754,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build", "tax"],
+    impactIcons: ["tribe","army"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -677,6 +768,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray", "gift"],
+    impactIcons: ["tribe","army"],
+    prize: null,
     effects: [],
   },
   {
@@ -689,6 +782,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["gift"],
+    impactIcons: ["road","road","leverage","suit_intelligence"],
+    prize: null,
     effects: [],
   },
   {
@@ -701,6 +796,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["gift", "move"],
+    impactIcons: ["road","road","army"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -713,6 +810,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["move", "build"],
+    impactIcons: ["road","suit_political"],
+    prize: null,
     effects: [],
   },
   {
@@ -725,6 +824,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "build"],
+    impactIcons: ["road","suit_political"],
+    prize: null,
     effects: [],
   },
   {
@@ -737,6 +838,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle", "move"],
+    impactIcons: ["army","army"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -749,6 +852,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle"],
+    impactIcons: ["army"],
+    prize: "russian",
     effects: [
       {
         id: "indian_supplies",
@@ -767,6 +872,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "tax"],
+    impactIcons: ["army","suit_political"],
+    prize: null,
     effects: [],
   },
   {
@@ -779,6 +886,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray"],
+    impactIcons: ["army","army","spy"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -791,6 +900,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["tax"],
+    impactIcons: ["spy","leverage"],
+    prize: null,
     effects: [
       {
         id: "blackmail_herat",
@@ -809,6 +920,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "tax", "move"],
+    impactIcons: ["tribe","army"],
+    prize: null,
     effects: [],
   },
   {
@@ -821,6 +934,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray"],
+    impactIcons: ["tribe","tribe","suit_political"],
+    prize: "afghan",
     effects: [
       {
         id: "well_connected",
@@ -839,6 +954,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray", "move"],
+    impactIcons: ["tribe"],
+    prize: "british",
     effects: [],
   },
   {
@@ -851,6 +968,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["gift", "build"],
+    impactIcons: ["tribe","suit_economic"],
+    prize: null,
     effects: [],
   },
   {
@@ -863,6 +982,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray", "battle"],
+    impactIcons: ["army","army"],
+    prize: null,
     effects: [],
   },
   {
@@ -875,6 +996,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "gift", "battle"],
+    impactIcons: ["army"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -887,6 +1010,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax"],
+    impactIcons: ["road","road"],
+    prize: null,
     effects: [],
   },
   {
@@ -899,6 +1024,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["gift", "build"],
+    impactIcons: ["road","suit_political"],
+    prize: null,
     effects: [],
   },
   {
@@ -911,6 +1038,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["move"],
+    impactIcons: ["road","road","road"],
+    prize: null,
     effects: [],
   },
   {
@@ -923,6 +1052,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax"],
+    impactIcons: ["road","road","spy","suit_military"],
+    prize: null,
     effects: [],
   },
   {
@@ -935,6 +1066,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "tax", "move"],
+    impactIcons: ["road","army"],
+    prize: null,
     effects: [],
   },
   {
@@ -947,6 +1080,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle"],
+    impactIcons: ["road","road","army"],
+    prize: "afghan",
     effects: [
       {
         id: "herat_influence",
@@ -965,6 +1100,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["move", "gift"],
+    impactIcons: ["road"],
+    prize: null,
     effects: [],
   },
   {
@@ -977,6 +1114,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax"],
+    impactIcons: ["spy","spy","army"],
+    prize: null,
     effects: [
       {
         id: "persian_influence",
@@ -995,6 +1134,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle", "move"],
+    impactIcons: ["spy","spy"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1007,6 +1148,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move"],
+    impactIcons: ["spy","spy"],
+    prize: "afghan",
     effects: [
       {
         id: "russian_influence",
@@ -1025,6 +1168,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move", "gift"],
+    impactIcons: ["spy"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -1037,6 +1182,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["move"],
+    impactIcons: ["spy","spy"],
+    prize: "russian",
     effects: [
       {
         id: "safe_house",
@@ -1055,6 +1202,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build", "battle"],
+    impactIcons: ["spy","suit_military"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1067,6 +1216,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["betray", "battle"],
+    impactIcons: ["tribe","suit_intelligence"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -1079,6 +1230,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "battle"],
+    impactIcons: ["tribe","army"],
+    prize: null,
     effects: [],
   },
   {
@@ -1091,6 +1244,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: [],
+    impactIcons: ["tribe","tribe","suit_intelligence"],
+    prize: null,
     effects: [],
   },
   {
@@ -1103,6 +1258,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build", "betray"],
+    impactIcons: ["tribe","army","suit_intelligence"],
+    prize: null,
     effects: [],
   },
   {
@@ -1115,6 +1272,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["build"],
+    impactIcons: ["road","road","leverage","suit_intelligence"],
+    prize: null,
     effects: [
       {
         id: "infrastructure",
@@ -1133,6 +1292,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["tax", "move"],
+    impactIcons: ["road","spy","leverage"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1145,6 +1306,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: true,
     actionIcons: ["tax", "build"],
+    impactIcons: ["road","leverage"],
+    prize: "russian",
     effects: [],
   },
   {
@@ -1157,6 +1320,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: true,
     actionIcons: ["tax", "build"],
+    impactIcons: ["road","road","leverage"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1169,6 +1334,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["gift", "battle"],
+    impactIcons: ["army","army","suit_intelligence"],
+    prize: null,
     effects: [],
   },
   {
@@ -1181,6 +1348,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax"],
+    impactIcons: ["army","spy"],
+    prize: null,
     effects: [
       {
         id: "bodyguards",
@@ -1199,6 +1368,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle"],
+    impactIcons: ["army","army","suit_economic"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -1211,6 +1382,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["gift", "build"],
+    impactIcons: ["spy","leverage","suit_economic"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1223,6 +1396,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move", "build"],
+    impactIcons: ["spy","spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -1235,6 +1410,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move", "gift", "build"],
+    impactIcons: ["spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -1247,6 +1424,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move", "gift"],
+    impactIcons: ["spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -1259,6 +1438,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["move", "betray", "battle"],
+    impactIcons: ["spy"],
+    prize: null,
     effects: [],
   },
   {
@@ -1271,6 +1452,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "betray"],
+    impactIcons: ["tribe"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1283,6 +1466,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["betray"],
+    impactIcons: ["tribe","army","spy"],
+    prize: "russian",
     effects: [
       {
         id: "savvy_operator",
@@ -1301,6 +1486,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "tax", "move"],
+    impactIcons: ["tribe","spy","suit_military"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1313,6 +1500,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["battle", "betray"],
+    impactIcons: ["tribe","tribe"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1325,6 +1514,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 1,
     isPatriot: false,
     actionIcons: ["tax", "betray"],
+    impactIcons: ["road","spy","leverage"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1337,6 +1528,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["tax", "move"],
+    impactIcons: ["road"],
+    prize: "afghan",
     effects: [],
   },
   {
@@ -1349,6 +1542,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["tax", "move"],
+    impactIcons: ["road","road"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1361,6 +1556,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["build"],
+    impactIcons: ["army","suit_intelligence"],
+    prize: null,
     effects: [
       {
         id: "citadel_transcaspia",
@@ -1379,6 +1576,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: false,
     actionIcons: ["gift"],
+    impactIcons: ["army","army","army"],
+    prize: "british",
     effects: [],
   },
   {
@@ -1391,6 +1590,8 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle"],
+    impactIcons: ["army","spy"],
+    prize: "british",
     effects: [
       {
         id: "irregulars",
@@ -1409,9 +1610,61 @@ export const CARD_LIBRARY: CardDefinition[] = [
     stars: 0,
     isPatriot: true,
     actionIcons: ["battle"],
+    impactIcons: ["army","army"],
+    prize: "british",
     effects: [],
   },
 ];
+
+// ============================================================
+// Event Cards
+// ============================================================
+
+export type EventCardType = "dominance_check" | "event";
+
+export interface EventCardDefinition {
+  id: string;
+  type: EventCardType;
+  name: string;
+  purchasedEffect: string;
+  unpurchasedEffect: string;
+}
+
+export const EVENT_CARDS: EventCardDefinition[] = [
+  // 4 Dominance Check cards
+  { id: "card_101", type: "dominance_check", name: "Dominance Check", purchasedEffect: "Resolve a Dominance Check.", unpurchasedEffect: "Resolve a Dominance Check." },
+  { id: "card_102", type: "dominance_check", name: "Dominance Check", purchasedEffect: "Resolve a Dominance Check.", unpurchasedEffect: "Resolve a Dominance Check." },
+  { id: "card_103", type: "dominance_check", name: "Dominance Check", purchasedEffect: "Resolve a Dominance Check.", unpurchasedEffect: "Resolve a Dominance Check." },
+  { id: "card_104", type: "dominance_check", name: "Dominance Check", purchasedEffect: "Resolve a Dominance Check.", unpurchasedEffect: "Resolve a Dominance Check." },
+  // 12 Other Event cards
+  { id: "card_105", type: "event", name: "New Tactics", purchasedEffect: "Your military cards are always considered favored until the next Dominance Check.", unpurchasedEffect: "Embarrassment of Riches: Gifts are not worth influence until after the next Dominance Check." },
+  { id: "card_106", type: "event", name: "Koh-i-noor Recovered", purchasedEffect: "Each of your gifts is worth an additional influence point until after the next Dominance Check.", unpurchasedEffect: "Embarrassment of Riches: Gifts are not worth influence until after the next Dominance Check." },
+  { id: "card_107", type: "event", name: "Courtly Manners", purchasedEffect: "You may choose to not pay bribes until the next Dominance Check.", unpurchasedEffect: "Disregard for Customs: All ignore all bribes until the next Dominance Check." },
+  { id: "card_108", type: "event", name: "Rumor", purchasedEffect: "Choose a player. Their patriots do not count for influence until after the next Dominance Check.", unpurchasedEffect: "Failure to Impress: All discard all loyalty prizes." },
+  { id: "card_109", type: "event", name: "Conflict Fatigue", purchasedEffect: "Coalitions require only two more blocks in order to be dominant during the next Dominance Check.", unpurchasedEffect: "Riots in Punjab: Remove all tribes and armies in Punjab." },
+  { id: "card_110", type: "event", name: "Nationalism", purchasedEffect: "Your tribes may move and battle as if they were armies until the next Dominance Check.", unpurchasedEffect: "Riots in Herat: Remove all tribes and armies in Herat." },
+  { id: "card_111", type: "event", name: "Public Withdrawal", purchasedEffect: "This card cannot be purchased. Any money placed on this card in the market is instead removed from the game.", unpurchasedEffect: "No effect." },
+  { id: "card_112", type: "event", name: "Nation Building", purchasedEffect: "Place twice as many blocks when you take the build action until the next Dominance Check.", unpurchasedEffect: "Riots in Kabul: Remove all tribes and armies in Kabul." },
+  { id: "card_113", type: "event", name: "Backing of Persian Aristocracy", purchasedEffect: "Take three rupees from the bank.", unpurchasedEffect: "Riots in Persia: Remove all tribes and armies in Persia." },
+  { id: "card_114", type: "event", name: "Other Persuasive Methods", purchasedEffect: "Exchange your hand with another player. You may exchange an empty hand.", unpurchasedEffect: "Confidence Failure: All players must immediately discard a card from their hand." },
+  { id: "card_115", type: "event", name: "Pashtunwali Values", purchasedEffect: "Choose a suit to favor. All favored suit change impact icons are ignored until the next Dominance Check.", unpurchasedEffect: "Rebuke: Remove all tribes and armies in a single region." },
+  { id: "card_116", type: "event", name: "Rebuke", purchasedEffect: "Remove all tribes and armies in a single region.", unpurchasedEffect: "Rebuke: Remove all tribes and armies in a single region." },
+];
+
+export const DOMINANCE_CHECK_CARDS = EVENT_CARDS.filter((c) => c.type === "dominance_check");
+export const OTHER_EVENT_CARDS = EVENT_CARDS.filter((c) => c.type === "event");
+
+export function isEventCard(cardId: string): boolean {
+  return EVENT_CARDS.some((c) => c.id === cardId);
+}
+
+export function isDominanceCheckCard(cardId: string): boolean {
+  return DOMINANCE_CHECK_CARDS.some((c) => c.id === cardId);
+}
+
+export function getEventCard(cardId: string): EventCardDefinition | undefined {
+  return EVENT_CARDS.find((c) => c.id === cardId);
+}
 
 export function validateCardLibrary(cards: CardDefinition[]): string[] {
   const issues: string[] = [];
