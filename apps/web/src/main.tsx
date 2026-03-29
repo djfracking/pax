@@ -36,10 +36,12 @@ type GameEvent = { turn: number; action: GameAction; note: string; at: string };
 
 // --- Region Card ---
 
-function RegionCard({ region, board }: { region: PublicObservation["board"][0]; board: PublicObservation["board"] }) {
+function RegionCard({ region, borders }: { region: PublicObservation["board"][0]; borders: PublicObservation["borders"] }) {
   const adjacent = getAdjacentRegions(region.id as Region);
   const totalArmies = region.armies.afghan + region.armies.british + region.armies.russian;
-  const totalRoads = region.roads.afghan + region.roads.british + region.roads.russian;
+  const regionBorders = borders.filter(
+    (b) => b.regions[0] === region.id || b.regions[1] === region.id
+  );
 
   return (
     <div style={{
@@ -72,21 +74,29 @@ function RegionCard({ region, board }: { region: PublicObservation["board"][0]; 
         {totalArmies === 0 && <span style={{ fontSize: 10, color: "#475569" }}>none</span>}
       </div>
 
-      {/* Roads with border labels */}
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6, alignItems: "center" }}>
-        <span style={{ fontSize: 9, color: "#475569", width: 36 }}>Roads</span>
-        {(["afghan", "british", "russian"] as const).map((c) => {
-          const count = region.roads[c];
-          if (count === 0) return null;
-          return Array.from({ length: count }, (_, i) => (
-            <span key={`r-${c}-${i}`} style={{
-              display: "inline-block", width: 16, height: 5,
-              borderRadius: 2, background: COALITION_COLORS[c].accent,
-              border: "1px solid rgba(255,255,255,0.15)",
-            }} title={`${c} road`} />
-          ));
+      {/* Roads on borders */}
+      <div style={{ marginBottom: 6 }}>
+        <span style={{ fontSize: 9, color: "#475569" }}>Roads</span>
+        {regionBorders.map((border) => {
+          const otherRegion = border.regions[0] === region.id ? border.regions[1] : border.regions[0];
+          const totalRoads = border.roads.afghan + border.roads.british + border.roads.russian;
+          if (totalRoads === 0) return null;
+          return (
+            <div key={border.id} style={{ display: "flex", gap: 3, alignItems: "center", marginTop: 2, marginLeft: 4 }}>
+              <span style={{ fontSize: 8, color: "#475569", minWidth: 55 }}>to {otherRegion}</span>
+              {(["afghan", "british", "russian"] as const).map((c) =>
+                Array.from({ length: border.roads[c] }, (_, i) => (
+                  <span key={`r-${c}-${i}`} style={{
+                    display: "inline-block", width: 14, height: 4,
+                    borderRadius: 2, background: COALITION_COLORS[c].accent,
+                  }} title={`${c} road`} />
+                ))
+              )}
+            </div>
+          );
         })}
-        {totalRoads === 0 && <span style={{ fontSize: 10, color: "#475569" }}>none</span>}
+        {regionBorders.every((b) => b.roads.afghan + b.roads.british + b.roads.russian === 0) &&
+          <span style={{ fontSize: 10, color: "#475569", marginLeft: 4 }}>none</span>}
       </div>
 
       {/* Border connections */}
@@ -207,15 +217,27 @@ function PlayerStrip({ player, isCurrent }: {
       transition: "all 0.3s ease",
       boxShadow: isCurrent ? `0 0 12px ${colors.accent}33` : "none",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+      {/* Court cards (in front — public) */}
+      {player.court.length > 0 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+          {player.court.map((cardId) => (
+            <CourtCardMini key={cardId} cardId={cardId} />
+          ))}
+        </div>
+      )}
+      {player.court.length === 0 && (
+        <div style={{ fontSize: 10, color: "#475569", marginBottom: 6 }}>No court cards</div>
+      )}
+      {/* Player identity + stats */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.accent, display: "inline-block" }} />
-        <span style={{ fontWeight: 700, fontSize: 14, color: isCurrent ? colors.text : "#94a3b8" }}>
+        <span style={{ fontWeight: 700, fontSize: 13, color: isCurrent ? colors.text : "#94a3b8" }}>
           {player.id}
         </span>
         <span style={{ fontSize: 10, color: colors.accent }}>{player.coalition !== "none" ? player.coalition : ""}</span>
         {isCurrent && <span style={{ fontSize: 9, color: colors.accent, fontWeight: 700, marginLeft: "auto" }}>ACTIVE</span>}
       </div>
-      <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5, marginBottom: 4 }}>
+      <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>
         <span style={{ color: "#fbbf24" }}>{player.rupees} rupees</span>
         {" | "}
         <span style={{ color: "#a78bfa" }}>{player.victoryPoints} VP</span>
@@ -224,17 +246,7 @@ function PlayerStrip({ player, isCurrent }: {
         {" | "}
         Gifts:{player.giftsCylinders}
       </div>
-      {/* Court cards */}
-      {player.court.length > 0 && (
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-          {player.court.map((cardId) => (
-            <CourtCardMini key={cardId} cardId={cardId} />
-          ))}
-        </div>
-      )}
-      {player.court.length === 0 && (
-        <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>No court cards</div>
-      )}
+      {/* Hand is hidden in public observation — spectator can't see it */}
     </div>
   );
 }
@@ -282,7 +294,7 @@ function SpectatorApp() {
   const [state, setState] = useState<PublicObservation | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
   const [status, setStatus] = useState("Ready");
-  const [speed, setSpeed] = useState(600);
+  const [speed, setSpeed] = useState(2000);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerCount, setPlayerCount] = useState(2);
   const wsRef = useRef<WebSocket | null>(null);
@@ -460,7 +472,7 @@ function SpectatorApp() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 {regionOrder.map((rid) => {
                   const region = state.board.find((r) => r.id === rid);
-                  return region ? <RegionCard key={rid} region={region} board={state.board} /> : null;
+                  return region ? <RegionCard key={rid} region={region} borders={state.borders} /> : null;
                 })}
               </div>
             </div>

@@ -200,31 +200,23 @@ function appendEvent(gameId: string, turn: number, action: GameAction): void {
 }
 
 function describeAction(action: GameAction): string {
-  if (action.type === "buy_card") {
-    return `${action.playerId} buys row ${action.row + 1}, slot ${action.column + 1}`;
+  switch (action.type) {
+    case "buy_card": return `${action.playerId} buys row ${action.row + 1}, slot ${action.column + 1}`;
+    case "play_card": return `${action.playerId} plays ${action.cardId}`;
+    case "choose_faction": return `${action.playerId} chooses ${action.coalition}`;
+    case "take_rupee": return `${action.playerId} takes 1 rupee`;
+    case "build": return `${action.playerId} builds ${action.pieces.length} piece(s)`;
+    case "perform_dominance_check": return `${action.playerId} performs dominance check`;
+    case "tax": return `${action.playerId} taxes with ${action.cardId}`;
+    case "gift": return `${action.playerId} purchases gift`;
+    case "start_move": return `${action.playerId} starts moving with ${action.cardId}`;
+    case "move_army": return `${action.playerId} moves army ${action.fromRegionId} -> ${action.toRegionId}`;
+    case "move_spy": return `${action.playerId} moves spy`;
+    case "end_move": return `${action.playerId} ends move`;
+    case "battle": return `${action.playerId} battles in ${action.regionId}`;
+    case "betray": return `${action.playerId} betrays ${action.targetCardId}`;
+    case "pass": return `${action.playerId} passes`;
   }
-  if (action.type === "play_card") {
-    return `${action.playerId} plays ${action.cardId}`;
-  }
-  if (action.type === "choose_faction") {
-    return `${action.playerId} chooses ${action.coalition}`;
-  }
-  if (action.type === "take_rupee") {
-    return `${action.playerId} takes 1 rupee`;
-  }
-  if (action.type === "gain_loyalty") {
-    return `${action.playerId} gains 1 loyalty`;
-  }
-  if (action.type === "build_army") {
-    return `${action.playerId} builds army in ${action.regionId}`;
-  }
-  if (action.type === "build_road") {
-    return `${action.playerId} builds road in ${action.regionId}`;
-  }
-  if (action.type === "perform_dominance_check") {
-    return `${action.playerId} performs a dominance check`;
-  }
-  return `${action.playerId} passes`;
 }
 
 function chooseBotAction(state: GameState, playerId: string): GameAction | null {
