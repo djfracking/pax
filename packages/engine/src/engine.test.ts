@@ -170,14 +170,14 @@ describe("cloneState isolation", () => {
   it("mutations to cloned state don't affect original", () => {
     const state = advanceToDraft(createTestState());
     // Give p1 a court card with spy tracking
-    state.players[0].court.push("pamir-001");
-    state.players[0].courtCardSpies["pamir-001"] = { p2: 1 };
+    state.players[0].court.push("card_9");
+    state.players[0].courtCardSpies["card_9"] = { p2: 1 };
 
     const after = applyAction(state, { type: "take_rupee", playerId: "p1" });
 
     // Original spy data should be untouched
-    expect(state.players[0].courtCardSpies["pamir-001"]).toEqual({ p2: 1 });
-    expect(after.players[0].courtCardSpies["pamir-001"]).toEqual({ p2: 1 });
+    expect(state.players[0].courtCardSpies["card_9"]).toEqual({ p2: 1 });
+    expect(after.players[0].courtCardSpies["card_9"]).toEqual({ p2: 1 });
   });
 });
 
@@ -187,12 +187,12 @@ describe("play_card", () => {
   it("initializes courtCardSpies entry for played card", () => {
     let state = advanceToDraft(createTestState());
     // Put a card in p1's hand
-    state.players[0].hand.push("pamir-001");
+    state.players[0].hand.push("card_9");
 
-    const after = applyAction(state, { type: "play_card", playerId: "p1", cardId: "pamir-001" });
+    const after = applyAction(state, { type: "play_card", playerId: "p1", cardId: "card_9" });
     const p1 = getPlayer(after, "p1");
-    expect(p1.court).toContain("pamir-001");
-    expect(p1.courtCardSpies["pamir-001"]).toEqual({});
+    expect(p1.court).toContain("card_9");
+    expect(p1.courtCardSpies["card_9"]).toEqual({});
   });
 });
 
@@ -202,18 +202,18 @@ describe("tax action", () => {
   it("collects rupees equal to card rank", () => {
     let state = advanceToDraft(createTestState());
     // Put a tax card in p1's court
-    state.players[0].court.push("pamir-001"); // rank 1, has tax icon
-    state.players[0].courtCardSpies["pamir-001"] = {};
+    state.players[0].court.push("card_9"); // Afghan Handicrafts: tax+move, rank 1
+    state.players[0].courtCardSpies["card_9"] = {};
     const before = getPlayer(state, "p1").rupees;
 
-    const after = applyAction(state, { type: "tax", playerId: "p1", cardId: "pamir-001" });
+    const after = applyAction(state, { type: "tax", playerId: "p1", cardId: "card_9" });
     expect(getPlayer(after, "p1").rupees).toBe(before + 1);
   });
 
   it("appears in legal actions when player has tax-icon card in court", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-001"); // has tax icon
-    state.players[0].courtCardSpies["pamir-001"] = {};
+    state.players[0].court.push("card_9"); // has tax icon
+    state.players[0].courtCardSpies["card_9"] = {};
     const actions = getLegalActionChoices(state, "p1");
     const taxActions = actions.filter((a) => a.action.type === "tax");
     expect(taxActions.length).toBeGreaterThan(0);
@@ -252,11 +252,11 @@ describe("gift action", () => {
 describe("battle action", () => {
   it("removes enemy armies from region", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-007"); // battle icon, rank 2
-    state.players[0].courtCardSpies["pamir-007"] = {};
+    state.players[0].court.push("card_2"); // battle icon, rank 2
+    state.players[0].courtCardSpies["card_2"] = {};
     // Kabul has 1 british + 1 russian army by default
     const after = applyAction(state, {
-      type: "battle", playerId: "p1", cardId: "pamir-007", regionId: "kabul"
+      type: "battle", playerId: "p1", cardId: "card_2", regionId: "kabul"
     });
     const kabul = after.board.find((r) => r.id === "kabul")!;
     // Rank 2 removes 2 pieces: 1 british army + 1 russian army
@@ -268,8 +268,8 @@ describe("battle action", () => {
 
   it("appears in legal actions when enemy pieces exist in region", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-007"); // battle icon
-    state.players[0].courtCardSpies["pamir-007"] = {};
+    state.players[0].court.push("card_2"); // battle icon
+    state.players[0].courtCardSpies["card_2"] = {};
     const actions = getLegalActionChoices(state, "p1");
     const battleActions = actions.filter((a) => a.action.type === "battle");
     expect(battleActions.length).toBeGreaterThan(0);
@@ -279,11 +279,11 @@ describe("battle action", () => {
 describe("move_army action", () => {
   it("moves army between adjacent regions", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-007"); // move icon, rank 2
-    state.players[0].courtCardSpies["pamir-007"] = {};
+    state.players[0].court.push("card_2"); // move icon, rank 2
+    state.players[0].courtCardSpies["card_2"] = {};
     // Kabul starts with 1 afghan army
     const after = applyAction(state, {
-      type: "move_army", playerId: "p1", cardId: "pamir-007",
+      type: "move_army", playerId: "p1", cardId: "card_2",
       fromRegionId: "kabul", toRegionId: "herat"
     });
     const kabul = after.board.find((r) => r.id === "kabul")!;
@@ -294,12 +294,12 @@ describe("move_army action", () => {
 
   it("rejects move between non-adjacent regions", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-007");
-    state.players[0].courtCardSpies["pamir-007"] = {};
+    state.players[0].court.push("card_2");
+    state.players[0].courtCardSpies["card_2"] = {};
     // Kabul is NOT adjacent to persia
     expect(() =>
       applyAction(state, {
-        type: "move_army", playerId: "p1", cardId: "pamir-007",
+        type: "move_army", playerId: "p1", cardId: "card_2",
         fromRegionId: "kabul", toRegionId: "persia"
       })
     ).toThrow("Illegal action");
@@ -310,50 +310,50 @@ describe("move_spy action", () => {
   it("moves spy between court cards", () => {
     let state = advanceToDraft(createTestState());
     // p1 has move card and a spy on p2's court card
-    state.players[0].court.push("pamir-005"); // move icon
-    state.players[0].courtCardSpies["pamir-005"] = {};
-    state.players[1].court.push("pamir-003");
-    state.players[1].courtCardSpies["pamir-003"] = { p1: 1 };
-    state.players[1].court.push("pamir-004");
-    state.players[1].courtCardSpies["pamir-004"] = {};
+    state.players[0].court.push("card_34"); // move icon
+    state.players[0].courtCardSpies["card_34"] = {};
+    state.players[1].court.push("card_5");
+    state.players[1].courtCardSpies["card_5"] = { p1: 1 };
+    state.players[1].court.push("card_6");
+    state.players[1].courtCardSpies["card_6"] = {};
 
     const after = applyAction(state, {
-      type: "move_spy", playerId: "p1", cardId: "pamir-005",
-      fromCardId: "pamir-003", toCardId: "pamir-004"
+      type: "move_spy", playerId: "p1", cardId: "card_34",
+      fromCardId: "card_5", toCardId: "card_6"
     });
 
-    expect(after.players[1].courtCardSpies["pamir-003"]["p1"] ?? 0).toBe(0);
-    expect(after.players[1].courtCardSpies["pamir-004"]["p1"]).toBe(1);
+    expect(after.players[1].courtCardSpies["card_5"]["p1"] ?? 0).toBe(0);
+    expect(after.players[1].courtCardSpies["card_6"]["p1"]).toBe(1);
   });
 });
 
 describe("betray action", () => {
   it("removes target card from opponent court and costs 2 rupees", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-005"); // betray icon
-    state.players[0].courtCardSpies["pamir-005"] = {};
+    state.players[0].court.push("card_34"); // betray icon
+    state.players[0].courtCardSpies["card_34"] = {};
     state.players[0].rupees = 10;
     // p2 has a card with p1's spy on it
-    state.players[1].court.push("pamir-003");
-    state.players[1].courtCardSpies["pamir-003"] = { p1: 1 };
+    state.players[1].court.push("card_5");
+    state.players[1].courtCardSpies["card_5"] = { p1: 1 };
 
     const after = applyAction(state, {
-      type: "betray", playerId: "p1", cardId: "pamir-005",
-      targetCardId: "pamir-003", targetPlayerId: "p2"
+      type: "betray", playerId: "p1", cardId: "card_34",
+      targetCardId: "card_5", targetPlayerId: "p2"
     });
 
     expect(getPlayer(after, "p1").rupees).toBe(8); // 10 - 2
-    expect(getPlayer(after, "p2").court).not.toContain("pamir-003");
-    expect(after.discard).toContain("pamir-003");
+    expect(getPlayer(after, "p2").court).not.toContain("card_5");
+    expect(after.discard).toContain("card_5");
   });
 
   it("excluded from legal actions when insufficient rupees", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-005"); // betray icon
-    state.players[0].courtCardSpies["pamir-005"] = {};
+    state.players[0].court.push("card_34"); // betray icon
+    state.players[0].courtCardSpies["card_34"] = {};
     state.players[0].rupees = 1; // not enough for betray
-    state.players[1].court.push("pamir-003");
-    state.players[1].courtCardSpies["pamir-003"] = { p1: 1 };
+    state.players[1].court.push("card_5");
+    state.players[1].courtCardSpies["card_5"] = { p1: 1 };
 
     const actions = getLegalActionChoices(state, "p1");
     const betrayActions = actions.filter((a) => a.action.type === "betray");
@@ -362,12 +362,12 @@ describe("betray action", () => {
 
   it("excluded when no spy on any opponent card", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-005"); // betray icon
-    state.players[0].courtCardSpies["pamir-005"] = {};
+    state.players[0].court.push("card_34"); // betray icon
+    state.players[0].courtCardSpies["card_34"] = {};
     state.players[0].rupees = 10;
     // p2 has cards but no p1 spies
-    state.players[1].court.push("pamir-003");
-    state.players[1].courtCardSpies["pamir-003"] = {};
+    state.players[1].court.push("card_5");
+    state.players[1].courtCardSpies["card_5"] = {};
 
     const actions = getLegalActionChoices(state, "p1");
     const betrayActions = actions.filter((a) => a.action.type === "betray");
@@ -410,7 +410,7 @@ describe("dominance check", () => {
 describe("observations", () => {
   it("public observation hides player hands", () => {
     const state = advanceToDraft(createTestState());
-    state.players[0].hand.push("pamir-001");
+    state.players[0].hand.push("card_9");
     const pub = toPublicObservation(state);
     // PublicObservation players omit 'hand'
     expect((pub.players[0] as any).hand).toBeUndefined();
@@ -418,9 +418,9 @@ describe("observations", () => {
 
   it("player observation includes self hand and legal actions", () => {
     const state = advanceToDraft(createTestState());
-    state.players[0].hand.push("pamir-001");
+    state.players[0].hand.push("card_9");
     const obs = toPlayerObservation(state, "p1");
-    expect(obs.self.hand).toContain("pamir-001");
+    expect(obs.self.hand).toContain("card_9");
     expect(obs.legalActions.length).toBeGreaterThan(0);
   });
 
@@ -437,8 +437,8 @@ describe("observations", () => {
 describe("multi-action sequences", () => {
   it("build army then move it", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-007"); // move icon
-    state.players[0].courtCardSpies["pamir-007"] = {};
+    state.players[0].court.push("card_2"); // move icon
+    state.players[0].courtCardSpies["card_2"] = {};
 
     // Build afghan army in kabul
     state = applyAction(state, { type: "build_army", playerId: "p1", regionId: "kabul" });
@@ -451,7 +451,7 @@ describe("multi-action sequences", () => {
 
     // Move army from kabul to herat
     state = applyAction(state, {
-      type: "move_army", playerId: "p1", cardId: "pamir-007",
+      type: "move_army", playerId: "p1", cardId: "card_2",
       fromRegionId: "kabul", toRegionId: "herat"
     });
     expect(state.board.find((r) => r.id === "kabul")!.armies.afghan).toBe(1);
@@ -470,10 +470,9 @@ describe("multi-action sequences", () => {
 // --- Card Library Tests ---
 
 describe("card library", () => {
-  it("all cards have action icons", () => {
-    for (const card of CARD_LIBRARY) {
-      expect(card.actionIcons.length, `${card.id} has no action icons`).toBeGreaterThan(0);
-    }
+  it("most cards have action icons (2 exceptions: Dost Mohammad, Fath-Ali Shah)", () => {
+    const noIconCards = CARD_LIBRARY.filter((c) => c.actionIcons.length === 0);
+    expect(noIconCards.map((c) => c.id).sort()).toEqual(["card_7", "card_76"]);
   });
 
   it("all cards have valid ranks", () => {
@@ -494,23 +493,23 @@ describe("card library", () => {
 describe("used card tracking", () => {
   it("card used for tax cannot be used again this turn", () => {
     let state = advanceToDraft(createTestState());
-    state.players[0].court.push("pamir-001"); // tax icon
-    state.players[0].courtCardSpies["pamir-001"] = {};
+    state.players[0].court.push("card_9"); // tax icon
+    state.players[0].courtCardSpies["card_9"] = {};
 
-    state = applyAction(state, { type: "tax", playerId: "p1", cardId: "pamir-001" });
-    expect(state.usedCardThisTurn).toContain("pamir-001");
+    state = applyAction(state, { type: "tax", playerId: "p1", cardId: "card_9" });
+    expect(state.usedCardThisTurn).toContain("card_9");
 
-    // Should not have tax action for pamir-001 anymore
+    // Should not have tax action for card_9 anymore
     const actions = getLegalActionChoices(state, "p1");
     const taxActions = actions.filter(
-      (a) => a.action.type === "tax" && a.action.cardId === "pamir-001"
+      (a) => a.action.type === "tax" && a.action.cardId === "card_9"
     );
     expect(taxActions).toHaveLength(0);
   });
 
   it("used cards reset on turn advance", () => {
     let state = advanceToDraft(createTestState());
-    state.usedCardThisTurn = ["pamir-001"];
+    state.usedCardThisTurn = ["card_9"];
     state = applyAction(state, { type: "pass", playerId: "p1" });
     expect(state.usedCardThisTurn).toEqual([]);
   });
