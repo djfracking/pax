@@ -8,13 +8,19 @@ import {
   getLegalActions,
   toPlayerObservation,
   toPublicObservation,
+  CARD_LIBRARY,
+  EVENT_CARDS,
   type GameAction,
-  type GameState
+  type GameState,
+  type PublicObservation,
 } from "@pax/engine";
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
 const port = Number(process.env.PORT ?? 4000);
+
+const CARD_BY_ID = new Map(CARD_LIBRARY.map((c) => [c.id, c]));
+const EVENT_BY_ID = new Map(EVENT_CARDS.map((c) => [c.id, c]));
 
 const games = new Map<string, GameState>();
 const gameEvents = new Map<string, GameEvent[]>();
@@ -25,6 +31,7 @@ type GameEvent = {
   action: GameAction;
   note: string;
   at: string;
+  stateSnapshot: GameState;
 };
 
 app.get("/health", async () => ({ ok: true }));
@@ -37,7 +44,7 @@ app.post<{ Body: { gameId: string; playerIds: string[] } }>("/games", async (req
   const state = createInitialState(gameId, playerIds);
   games.set(gameId, state);
   gameEvents.set(gameId, []);
-  return { state: toPublicObservation(state) };
+  return { state: toFullState(state) };
 });
 
 app.get<{ Params: { gameId: string } }>("/games/:gameId", async (request, reply) => {
@@ -45,7 +52,7 @@ app.get<{ Params: { gameId: string } }>("/games/:gameId", async (request, reply)
   if (!state) {
     return reply.status(404).send({ error: "Game not found." });
   }
-  return { state: toPublicObservation(state) };
+  return { state: toFullState(state) };
 });
 
 app.get<{ Params: { gameId: string; playerId: string } }>(
@@ -81,8 +88,23 @@ app.get<{ Params: { gameId: string } }>("/games/:gameId/events", async (request,
   if (!games.has(request.params.gameId)) {
     return reply.status(404).send({ error: "Game not found." });
   }
-  return { events: gameEvents.get(request.params.gameId) ?? [] };
+  const events = gameEvents.get(request.params.gameId) ?? [];
+  // Return events without state snapshots for the list view (too large)
+  return {
+    events: events.map(({ stateSnapshot, ...rest }) => rest)
+  };
 });
+
+app.get<{ Params: { gameId: string; index: string } }>(
+  "/games/:gameId/events/:index/state",
+  async (request, reply) => {
+    const events = gameEvents.get(request.params.gameId);
+    if (!events) return reply.status(404).send({ error: "Game not found." });
+    const idx = parseInt(request.params.index, 10);
+    if (idx < 0 || idx >= events.length) return reply.status(404).send({ error: "Event not found." });
+    return { state: toFullState(events[idx].stateSnapshot) };
+  }
+);
 
 app.post<{ Params: { gameId: string }; Body: { action: GameAction } }>(
   "/games/:gameId/action",
@@ -94,9 +116,9 @@ app.post<{ Params: { gameId: string }; Body: { action: GameAction } }>(
     try {
       const nextState = applyAction(state, request.body.action);
       games.set(request.params.gameId, nextState);
-      appendEvent(request.params.gameId, nextState.turn - 1, request.body.action);
+      appendEvent(request.params.gameId, state.turn, request.body.action, state);
       broadcastGameUpdate(request.params.gameId, nextState);
-      return { state: toPublicObservation(nextState) };
+      return { state: toFullState(nextState) };
     } catch (error) {
       return reply.status(400).send({ error: (error as Error).message });
     }
@@ -138,92 +160,99 @@ wss.on("connection", (socket) => {
   socket.on("message", (raw) => {
     try {
       const payload = JSON.parse(String(raw)) as { type: "subscribe"; gameId: string };
-      if (payload.type !== "subscribe") {
-        return;
-      }
+      if (payload.type !== "subscribe") return;
       const set = subscriptions.get(payload.gameId) ?? new Set();
       set.add(socket);
       subscriptions.set(payload.gameId, set);
       const state = games.get(payload.gameId);
       if (state) {
-        socket.send(
-          JSON.stringify({
-            type: "state",
-            gameId: payload.gameId,
-            state: toPublicObservation(state)
-          })
-        );
+        socket.send(JSON.stringify({ type: "state", gameId: payload.gameId, state: toFullState(state) }));
       }
-    } catch {
-      // Ignore malformed websocket payload.
-    }
+    } catch { /* Ignore malformed */ }
   });
-
   socket.on("close", () => {
-    for (const sockets of subscriptions.values()) {
-      sockets.delete(socket);
-    }
+    for (const sockets of subscriptions.values()) sockets.delete(socket);
   });
 });
 
+// Spectator mode: broadcast full state including hands
+function toFullState(state: GameState): any {
+  const pub = toPublicObservation(state);
+  return {
+    ...pub,
+    // Override players to include hands
+    players: state.players.map((p) => ({
+      ...p,
+      hand: [...p.hand],
+      influence: { ...p.influence },
+      courtCardSpies: Object.fromEntries(
+        Object.entries(p.courtCardSpies).map(([k, v]) => [k, { ...v }])
+      ),
+    })),
+  };
+}
+
 function broadcastGameUpdate(gameId: string, state: GameState): void {
   const sockets = subscriptions.get(gameId);
-  if (!sockets || sockets.size === 0) {
-    return;
-  }
-  const data = JSON.stringify({ type: "state", gameId, state: toPublicObservation(state) });
-  for (const socket of sockets) {
-    socket.send(data);
-  }
+  if (!sockets || sockets.size === 0) return;
+  const data = JSON.stringify({ type: "state", gameId, state: toFullState(state) });
+  for (const socket of sockets) socket.send(data);
 }
 
 function broadcastSystemEvent(gameId: string, message: string): void {
   const sockets = subscriptions.get(gameId);
-  if (!sockets || sockets.size === 0) {
-    return;
-  }
+  if (!sockets || sockets.size === 0) return;
   const data = JSON.stringify({ type: "info", gameId, message });
-  for (const socket of sockets) {
-    socket.send(data);
-  }
+  for (const socket of sockets) socket.send(data);
 }
 
-function appendEvent(gameId: string, turn: number, action: GameAction): void {
+function appendEvent(gameId: string, turn: number, action: GameAction, stateBeforeAction: GameState): void {
   const events = gameEvents.get(gameId) ?? [];
   events.push({
     turn,
     action,
     note: describeAction(action),
-    at: new Date().toISOString()
+    at: new Date().toISOString(),
+    stateSnapshot: stateBeforeAction,
   });
   gameEvents.set(gameId, events);
+}
+
+function getCardName(cardId: string): string {
+  const court = CARD_BY_ID.get(cardId);
+  if (court) return court.name;
+  const event = EVENT_BY_ID.get(cardId);
+  if (event) return event.name;
+  return cardId;
 }
 
 function describeAction(action: GameAction): string {
   switch (action.type) {
     case "buy_card": return `${action.playerId} buys row ${action.row + 1}, slot ${action.column + 1}`;
-    case "play_card": return `${action.playerId} plays ${action.cardId}`;
+    case "play_card": return `${action.playerId} plays ${getCardName(action.cardId)}`;
     case "choose_faction": return `${action.playerId} chooses ${action.coalition}`;
     case "take_rupee": return `${action.playerId} takes 1 rupee`;
-    case "build": return `${action.playerId} builds ${action.pieces.length} piece(s)`;
+    case "build": {
+      const cardName = getCardName(action.cardId);
+      const pieces = action.pieces.map((p) => p.pieceType === "army" ? `army in ${p.regionId}` : `road on ${p.borderId}`).join(", ");
+      return `${action.playerId} builds ${pieces} using ${cardName}`;
+    }
     case "perform_dominance_check": return `${action.playerId} performs dominance check`;
-    case "tax": return `${action.playerId} taxes with ${action.cardId}`;
+    case "tax": return `${action.playerId} taxes with ${getCardName(action.cardId)}`;
     case "gift": return `${action.playerId} purchases gift`;
-    case "start_move": return `${action.playerId} starts moving with ${action.cardId}`;
-    case "move_army": return `${action.playerId} moves army ${action.fromRegionId} -> ${action.toRegionId}`;
-    case "move_spy": return `${action.playerId} moves spy`;
+    case "start_move": return `${action.playerId} starts moving with ${getCardName(action.cardId)}`;
+    case "move_army": return `${action.playerId} moves army ${action.fromRegionId} → ${action.toRegionId}`;
+    case "move_spy": return `${action.playerId} moves spy from ${getCardName(action.fromCardId)} to ${getCardName(action.toCardId)}`;
     case "end_move": return `${action.playerId} ends move`;
-    case "battle": return `${action.playerId} battles in ${action.regionId}`;
-    case "betray": return `${action.playerId} betrays ${action.targetCardId}`;
+    case "battle": return `${action.playerId} battles in ${action.regionId} using ${getCardName(action.cardId)}`;
+    case "betray": return `${action.playerId} betrays ${getCardName(action.targetCardId)} in ${action.targetPlayerId}'s court`;
     case "pass": return `${action.playerId} passes`;
   }
 }
 
 function chooseBotAction(state: GameState, playerId: string): GameAction | null {
   const actions = getLegalActions(state, playerId);
-  if (actions.length === 0) {
-    return null;
-  }
+  if (actions.length === 0) return null;
   const nonPass = actions.filter((a) => a.type !== "pass");
   if (nonPass.length > 0) {
     const idx = Math.floor(Math.random() * nonPass.length);
@@ -234,13 +263,15 @@ function chooseBotAction(state: GameState, playerId: string): GameAction | null 
 
 function stepBotTurn(gameId: string): void {
   const state = games.get(gameId);
-  if (!state) {
+  if (!state) { stopAutoplay(gameId); return; }
+  if (state.isFinished) {
     stopAutoplay(gameId);
+    broadcastSystemEvent(gameId, `Game finished! Winner: ${state.winnerPlayerId ?? "none"}`);
     return;
   }
-  if (state.turn > 60) {
+  if (state.turn > 100) {
     stopAutoplay(gameId);
-    broadcastSystemEvent(gameId, "Autoplay reached max turn limit (60)");
+    broadcastSystemEvent(gameId, "Autoplay reached max turn limit (100)");
     return;
   }
   const action = chooseBotAction(state, state.currentPlayerId);
@@ -250,9 +281,10 @@ function stepBotTurn(gameId: string): void {
     return;
   }
   try {
+    const prev = state;
     const next = applyAction(state, action);
     games.set(gameId, next);
-    appendEvent(gameId, next.turn - 1, action);
+    appendEvent(gameId, prev.turn, action, prev);
     broadcastGameUpdate(gameId, next);
   } catch (error) {
     stopAutoplay(gameId);
@@ -262,9 +294,7 @@ function stepBotTurn(gameId: string): void {
 
 function stopAutoplay(gameId: string): void {
   const timer = autoplayTimers.get(gameId);
-  if (!timer) {
-    return;
-  }
+  if (!timer) return;
   clearInterval(timer);
   autoplayTimers.delete(gameId);
 }

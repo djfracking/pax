@@ -106,17 +106,26 @@ function buildDeck(playerCount: number, seed: number): string[] {
   const n = playerCount;
   const courtCardsPerPile = 5 + n;
 
-  // Shuffle all court cards
+  // PP2e deck: 4 dominance + 6 event + 6*(5+n) court cards
+  // Total for 2p=52, 3p=58, 4p=64, 5p=70
   const allCourt = shuffle(CARD_LIBRARY.map((c) => c.id), seed);
+  const courtCards = allCourt.slice(0, courtCardsPerPile * 6);
 
-  // Shuffle event cards separately (use a different seed offset)
+  // 4 dominance check cards (all used)
   const dominanceIds = shuffle(DOMINANCE_CHECK_CARDS.map((c) => c.id), seed + 1);
-  const eventIds = shuffle(OTHER_EVENT_CARDS.map((c) => c.id), seed + 2);
 
-  // Build 6 piles
-  // Pile 1: court cards only
-  // Pile 2: court cards + 1 event
-  // Piles 3-6: court cards + 1 event + 1 dominance check
+  // 6 event cards (randomly selected from 12 available)
+  const allEvents = shuffle(OTHER_EVENT_CARDS.map((c) => c.id), seed + 2);
+  const eventIds = allEvents.slice(0, 6);
+
+  // Build 6 piles per PP2e rules:
+  // Pile 1: 5+n court cards only
+  // Pile 2: 5+n court + 2 events
+  // Pile 3: 5+n court + 1 event + 1 dominance
+  // Pile 4: 5+n court + 1 event + 1 dominance
+  // Pile 5: 5+n court + 1 event + 1 dominance
+  // Pile 6: 5+n court + 1 event + 1 dominance
+  // Total events: 2 + 1 + 1 + 1 + 1 = 6
   const piles: string[][] = [];
   let courtIdx = 0;
   let eventIdx = 0;
@@ -125,27 +134,27 @@ function buildDeck(playerCount: number, seed: number): string[] {
   for (let pileNum = 1; pileNum <= 6; pileNum++) {
     const pile: string[] = [];
 
-    // Add court cards
-    for (let i = 0; i < courtCardsPerPile && courtIdx < allCourt.length; i++) {
-      pile.push(allCourt[courtIdx++]);
+    for (let i = 0; i < courtCardsPerPile && courtIdx < courtCards.length; i++) {
+      pile.push(courtCards[courtIdx++]);
     }
 
-    // Add event card for piles 2-6
-    if (pileNum >= 2 && eventIdx < eventIds.length) {
-      pile.push(eventIds[eventIdx++]);
+    // Pile 2 gets 2 event cards, piles 3-6 get 1 each
+    if (pileNum === 2) {
+      if (eventIdx < eventIds.length) pile.push(eventIds[eventIdx++]);
+      if (eventIdx < eventIds.length) pile.push(eventIds[eventIdx++]);
+    } else if (pileNum >= 3) {
+      if (eventIdx < eventIds.length) pile.push(eventIds[eventIdx++]);
     }
 
-    // Add dominance check for piles 3-6
+    // Piles 3-6 get 1 dominance check card
     if (pileNum >= 3 && domIdx < dominanceIds.length) {
       pile.push(dominanceIds[domIdx++]);
     }
 
-    // Shuffle each pile independently (use pile-specific seed)
     piles.push(shuffle(pile, seed + 100 + pileNum));
   }
 
-  // Stack piles: pile 1 on top (drawn first), pile 6 on bottom
-  // Dominance check piles (3-6) are toward the bottom
+  // Stack: pile 1 on top (drawn first), pile 6 on bottom
   const deck: string[] = [];
   for (const pile of piles) {
     deck.push(...pile);
@@ -174,12 +183,41 @@ function refillMarket(state: GameState): void {
   }
   state.deckCount = state.deck.length;
 
+  // Check for two dominance check cards anywhere in the market — both auto-execute
+  let domCardsInMarket: Array<{ row: number; col: number; cardId: string }> = [];
+  for (let r = 0; r < state.marketRows.length; r++) {
+    for (let c = 0; c < state.marketRows[r].length; c++) {
+      if (isDominanceCheckCard(state.marketRows[r][c])) {
+        domCardsInMarket.push({ row: r, col: c, cardId: state.marketRows[r][c] });
+      }
+    }
+  }
+  if (domCardsInMarket.length >= 2) {
+    // Remove all dominance cards from market (reverse order to preserve indices)
+    for (const dc of [...domCardsInMarket].reverse()) {
+      state.marketRows[dc.row].splice(dc.col, 1);
+    }
+    // Resolve each one
+    for (const dc of domCardsInMarket) {
+      if (state.isFinished) break;
+      resolveEventCard(state, dc.cardId, false);
+    }
+    // Refill after removing
+    for (const row of state.marketRows) {
+      while (row.length < 5) {
+        const next = state.deck.shift();
+        if (!next) break;
+        row.push(next);
+      }
+    }
+    state.deckCount = state.deck.length;
+  }
+
   // Auto-trigger event cards at position 0 (leftmost, cost = 0)
   for (const row of state.marketRows) {
     while (row.length > 0 && isEventCard(row[0])) {
       const eventCardId = row.shift()!;
       resolveEventCard(state, eventCardId, false);
-      // Refill the gap
       const next = state.deck.shift();
       if (next) row.unshift(next);
       else break;
@@ -418,15 +456,15 @@ function resolveEventCard(state: GameState, cardId: string, purchased: boolean):
         state.winnerPlayerId = vpSorted[0].id;
       }
 
-      if (isFinal && !state.isFinished && vpSorted.length >= 2 && vpSorted[0].victoryPoints === vpSorted[1].victoryPoints) {
-        const tied = state.players.filter((p) => p.victoryPoints === vpSorted[0].victoryPoints);
-        if (tied.length >= 2) {
-          const byMilitary = [...tied].sort((a, b) => getMilitaryRanks(b) - getMilitaryRanks(a));
-          if (getMilitaryRanks(byMilitary[0]) > getMilitaryRanks(byMilitary[1])) {
-            state.isFinished = true;
-            state.winnerPlayerId = byMilitary[0].id;
-          }
-        }
+      // Final dominance check: game always ends
+      if (isFinal && !state.isFinished) {
+        state.isFinished = true;
+        // Determine winner: highest VP, military tiebreaker
+        const vpSortedFinal = [...state.players].sort((a, b) => {
+          if (b.victoryPoints !== a.victoryPoints) return b.victoryPoints - a.victoryPoints;
+          return getMilitaryRanks(b) - getMilitaryRanks(a);
+        });
+        state.winnerPlayerId = vpSortedFinal[0]?.id ?? null;
       }
     }
     return;
@@ -1087,18 +1125,16 @@ function handleDominanceCheck(state: GameState): void {
     state.winnerPlayerId = vpSorted[0].id;
   }
 
-  // Final dominance check tiebreaker: military ranks
-  if (isFinal && !state.isFinished && vpSorted.length >= 2 && vpSorted[0].victoryPoints === vpSorted[1].victoryPoints) {
-    const tied = state.players.filter((p) => p.victoryPoints === vpSorted[0].victoryPoints);
-    if (tied.length >= 2) {
-      const byMilitary = tied.sort((a, b) => getMilitaryRanks(b) - getMilitaryRanks(a));
-      if (getMilitaryRanks(byMilitary[0]) > getMilitaryRanks(byMilitary[1])) {
-        state.isFinished = true;
-        state.winnerPlayerId = byMilitary[0].id;
-      }
-      // If still tied on military, no winner
-    }
+  // Final dominance check: game always ends
+  if (isFinal && !state.isFinished) {
+    state.isFinished = true;
+    const vpSortedFinal = [...state.players].sort((a, b) => {
+      if (b.victoryPoints !== a.victoryPoints) return b.victoryPoints - a.victoryPoints;
+      return getMilitaryRanks(b) - getMilitaryRanks(a);
+    });
+    state.winnerPlayerId = vpSortedFinal[0]?.id ?? null;
   }
+
 
   spendActionPointOrAdvanceTurn(state);
 }
